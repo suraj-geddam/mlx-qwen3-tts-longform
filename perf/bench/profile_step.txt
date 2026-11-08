@@ -1,0 +1,4 @@
+B=  1 prefill    410 ms | per step   78.6 ms = talker  36.3  sample   0.7  codepred  41.1  embed   0.5 | per stream-frame  78.6 ms  (RTF 0.983)
+B=  8 prefill   3152 ms | per step  134.7 ms = talker  54.8  sample   1.5  codepred  77.6  embed   0.8 | per stream-frame  16.8 ms  (RTF 0.211)
+B= 16 prefill  10452 ms | per step  241.7 ms = talker  97.8  sample   3.2  codepred 139.8  embed   0.8 | per stream-frame  15.1 ms  (RTF 0.189)
+B= 64 prefill  41476 ms | per step  484.8 ms = talker 179.0  sample  11.0  codepred 293.2  embed   1.6 | per stream-frame   7.6 ms  (RTF 0.095)

@@ -1,0 +1,73 @@
+[
+ {
+  "variant": "per-stream (mlx-audio)",
+  "s": 60.46,
+  "rtf": 0.3147,
+  "peak_gb": 10.22,
+  "snr_db": "ref",
+  "max_diff": 0
+ },
+ {
+  "variant": "batched B=2",
+  "s": 62.54,
+  "rtf": 0.3254,
+  "peak_gb": 15.48,
+  "snr_db": 116.5,
+  "max_diff": 7.614493370056152e-06,
+  "len_diff": 0
+ },
+ {
+  "variant": "batched B=4",
+  "s": 66.02,
+  "rtf": 0.3435,
+  "peak_gb": 23.79,
+  "snr_db": 115.6,
+  "max_diff": 8.858740329742432e-06,
+  "len_diff": 0
+ },
+ {
+  "variant": "batched B=8",
+  "s": 100.96,
+  "rtf": 0.5254,
+  "peak_gb": 27.0,
+  "snr_db": 115.6,
+  "max_diff": 8.858740329742432e-06,
+  "len_diff": 0
+ },
+ {
+  "variant": "batched short-ctx 25 B=1",
+  "s": 27.99,
+  "rtf": 0.1456,
+  "peak_gb": 9.16,
+  "snr_db": 9.1,
+  "max_diff": 0.9151653051376343,
+  "len_diff": 1
+ },
+ {
+  "variant": "batched short-ctx 25 B=2",
+  "s": 29.81,
+  "rtf": 0.1551,
+  "peak_gb": 10.69,
+  "snr_db": 9.1,
+  "max_diff": 0.9151653051376343,
+  "len_diff": 1
+ },
+ {
+  "variant": "batched short-ctx 25 B=4",
+  "s": 32.87,
+  "rtf": 0.1711,
+  "peak_gb": 16.73,
+  "snr_db": 9.1,
+  "max_diff": 0.9151654839515686,
+  "len_diff": 1
+ },
+ {
+  "variant": "batched short-ctx 25 B=8",
+  "s": 33.55,
+  "rtf": 0.1746,
+  "peak_gb": 20.1,
+  "snr_db": 9.1,
+  "max_diff": 0.9151654839515686,
+  "len_diff": 1
+ }
+]

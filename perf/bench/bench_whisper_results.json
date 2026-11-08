@@ -1,0 +1,4 @@
+{"clips": 66, "audio_s": 486, "seq_s": 178.9, "seq_rtf": 0.3679, "seq_mean_wer": 0.0196,
+ "batched": [{"batch": 1, "s": 183.2, "speedup": 0.98, "wer": 0.0177, "same_wer": "61/66", "gate_flips": 0, "start_mae_ms": 1.5},
+             {"batch": 4, "s": 184.4, "speedup": 0.97, "wer": 0.0177, "same_wer": "61/66", "gate_flips": 0, "start_mae_ms": 1.3}],
+ "note": "stopped after batch 4: no speedup, encoder runs a padded 30 s window per clip and is compute-bound"}

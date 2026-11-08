@@ -1,0 +1,30 @@
+{
+ "clips": 66,
+ "audio_s": 486.20025,
+ "seq_s": 199.1875991821289,
+ "encoder_ms": 1456.0611724853516,
+ "variants": [
+  {
+   "variant": "packed 28:1.0",
+   "s": 97.1,
+   "speedup": 2.05,
+   "rtf": 0.1998,
+   "wer": 0.0194,
+   "same_wer": 58,
+   "gate_flips": 1,
+   "start_mae_ms": 14.6,
+   "start_p95_ms": 50.0
+  },
+  {
+   "variant": "packed 28:0.6",
+   "s": 73.8,
+   "speedup": 2.7,
+   "rtf": 0.1517,
+   "wer": 0.0176,
+   "same_wer": 59,
+   "gate_flips": 0,
+   "start_mae_ms": 14.8,
+   "start_p95_ms": 50.0
+  }
+ ]
+}
