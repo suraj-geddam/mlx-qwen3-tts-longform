@@ -108,7 +108,7 @@ for _uk, _us in [("grey", "gray"), ("colour", "color"), ("honour", "honor"), ("f
 _NORM = None
 
 
-def toks(s):
+def _base_toks(s):
     """Words for comparing a script with a transcript. Both sides go through the same normalization as the script
     ("$1.87" and "one dollar and eighty-seven cents" give the same words)."""
     global _NORM
@@ -120,8 +120,58 @@ def toks(s):
     return [EQUIV.get(w, w) for w in (w.strip(".,:;!?'\"“”()") for w in s.split()) if w]
 
 
-def wer_ops(ref, hyp):
-    r, h = toks(ref), toks(hyp)
+def _apply_equiv(tokens, asr_equiv, spans=None):
+    """One longest-first, whole-token substitution pass; never recursively rewrite a target."""
+    rules = _equiv_rules(tuple(sorted((asr_equiv or {}).items())))
+    out, times, i = [], [], 0
+    while i < len(tokens):
+        for source, target in rules.get(tokens[i], ()):
+            if tuple(tokens[i:i + len(source)]) == source:
+                out.extend(target)
+                if spans is not None:
+                    times.extend([(spans[i][0], spans[i + len(source) - 1][1])] * len(target))
+                i += len(source)
+                break
+        else:
+            out.append(tokens[i])
+            if spans is not None:
+                times.append(spans[i])
+            i += 1
+    return out, times
+
+
+@functools.lru_cache(maxsize=64)
+def _equiv_rules(items):
+    rules = {}
+    for source, target in items:
+        source, target = tuple(_base_toks(source)), tuple(_base_toks(target))
+        if not source or not target:
+            raise ValueError("asr_equiv spellings must contain comparison tokens")
+        rules.setdefault(source[0], []).append((source, target))
+    for candidates in rules.values():
+        candidates.sort(key=lambda r: -len(r[0]))
+    return rules
+
+
+def toks(s, asr_equiv=None):
+    """Comparison words, with optional per-script spelling equivalences on both sides."""
+    tokens = _base_toks(s)
+    return _apply_equiv(tokens, asr_equiv)[0] if asr_equiv else tokens
+
+
+def transcript_tokens(words, asr_equiv=None):
+    """Comparison tokens with timestamps, including phrases spanning Whisper word entries."""
+    tokens, spans = [], []
+    for word, start, end in words:
+        ts = _base_toks(word)
+        tokens.extend(ts); spans.extend([(start, end)] * len(ts))
+    if asr_equiv:
+        tokens, spans = _apply_equiv(tokens, asr_equiv, spans)
+    return [(token, start, end) for token, (start, end) in zip(tokens, spans)]
+
+
+def wer_ops(ref, hyp, asr_equiv=None):
+    r, h = toks(ref, asr_equiv), toks(hyp, asr_equiv)
     sm = difflib.SequenceMatcher(a=r, b=h, autojunk=False)
     errs = [(op, " ".join(r[i1:i2]), " ".join(h[j1:j2])) for op, i1, i2, j1, j2 in sm.get_opcodes() if op != "equal"]
     n = sum(max(len(a.split()), len(b.split())) for _, a, b in errs)
@@ -191,7 +241,7 @@ def slope_per_min(t, v):
     return float(np.polyfit(t[ok] / 60, v[ok], 1)[0])
 
 
-def analyse(path, ref, script_text=None, win=15.0, asr=True, prompt=None):
+def analyse(path, ref, script_text=None, win=15.0, asr=True, prompt=None, asr_equiv=None):
     """ref: reference_profile(). Returns dict with per-window rows and a summary."""
     y, sr = load(path)
     y16 = to16(y, sr)
@@ -211,7 +261,7 @@ def analyse(path, ref, script_text=None, win=15.0, asr=True, prompt=None):
         t += win
     summ = {"dur": round(dur, 1)}
     if res and script_text:
-        w, errs = wer_ops(script_text, res["text"])
+        w, errs = wer_ops(script_text, res["text"], asr_equiv)
         summ["wer"] = round(w, 4); summ["n_err"] = len(errs); summ["errs"] = errs[:40]
     if wl:
         summ["wpm_all"] = round(len(wl) / dur * 60, 1)

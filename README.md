@@ -86,6 +86,15 @@ checker normalizes both the script and Whisper's transcript, so "$1.87" and "one
 cents" count as the same words. Anything else that should be read a particular way, such as an unusual name,
 is best respelled in the script.
 
+JSON scripts may also carry an optional `asr_equiv` object, for example
+`{"asr_equiv": {"M I T": "MIT", "colour": "color"}, "lines": [...]}`. These are
+spelling equivalences for comparison with Whisper: they apply to take checks, cut
+alignment and `--analyse`, on both sides, without rewriting what is spoken. Matches
+use whole tokens, longest phrases first, in a single pass. Targets should be canonical
+spellings, not another alias. Only list equivalent spellings; mapping a mispronunciation
+to the intended word would hide a real error. The map is recorded in `run.json` and
+belongs to that run, with no process-global settings.
+
 ## Output
 
 `out/<name>/`:

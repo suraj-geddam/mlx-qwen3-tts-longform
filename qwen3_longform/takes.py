@@ -61,14 +61,14 @@ def ends_loud(y, sr):
     return float(e[-8:].max() - med)
 
 
-def check(y, sr, text, ref, res=None):
+def check(y, sr, text, ref, res=None, asr_equiv=None):
     """Score a take. ref: metrics.reference_profile(). res: a transcript already made for exactly this audio
     (else Whisper runs here)."""
     y16 = M.to16(y, sr)
     if res is None:
         res = M.transcribe(y16, words=True) if len(y16) > 1600 else {"text": "", "segments": []}
     hyp = res["text"].strip()
-    w, errs = M.wer_ops(text, hyp)
+    w, errs = M.wer_ops(text, hyp, asr_equiv)
     dur = len(y) / sr
     wps = len(text.split()) / max(0.3, dur)
     spk = float(M.spk_embed(y16) @ ref["emb"]) if dur > 1 else 0.0
@@ -82,18 +82,17 @@ def check(y, sr, text, ref, res=None):
             "spk": round(spk, 3), "dlufs": round(dl, 2), "end": round(el, 1), "ok": bool(ok), "cost": round(cost, 3)}
 
 
-def cut_span(y, sr, lead, text, guard, words):
+def cut_span(y, sr, lead, text, guard, words, asr_equiv=None):
     """The take read `lead text guard`; words: its Whisper [(word, start, end)]. Returns (audio, natural pause
     before the guard in s, (start, end) in samples), or (None, None, None) if a boundary can't be found or has
     no pause."""
     fail = (None, None, None)
-    stoks = M.toks(" ".join(x for x in (lead, text, guard) if x))
-    n0 = len(M.toks(lead)) if lead else 0
-    n1 = n0 + len(M.toks(text))
+    lt, tt, gt = [M.toks(part, asr_equiv) for part in (lead, text, guard)]
+    stoks = lt + tt + gt
+    n0, n1 = len(lt), len(lt) + len(tt)
     htoks, hs, he = [], [], []
-    for w, a, b in words:
-        for t in M.toks(w):
-            htoks.append(t); hs.append(a); he.append(b)
+    for token, a, b in M.transcript_tokens(words, asr_equiv):
+        htoks.append(token); hs.append(a); he.append(b)
     first_s = first_e = first_s_end = guard_s = guard_s_end = lead_e = None
     for blk in difflib.SequenceMatcher(a=stoks, b=htoks, autojunk=False).get_matching_blocks():
         for k in range(blk.size):
@@ -136,11 +135,11 @@ def cut_span(y, sr, lead, text, guard, words):
     return y[a:b], nat, (a, b)
 
 
-def score_take(job, y, sr, words, ref):
+def score_take(job, y, sr, words, ref, asr_equiv=None):
     """Cut, tidy and score one raw take, using the words of its transcript that fall inside the cut."""
-    yc, nat, ab = cut_span(y, sr, job["lead"], job["text"], job["guard"], words)
+    yc, nat, ab = cut_span(y, sr, job["lead"], job["text"], job["guard"], words, asr_equiv)
     if yc is None or len(yc) < 0.5 * sr:
-        s = check(np.zeros(0, np.float32), sr, job["text"], ref, res={"text": "", "segments": []})
+        s = check(np.zeros(0, np.float32), sr, job["text"], ref, res={"text": "", "segments": []}, asr_equiv=asr_equiv)
         s.update(cut=False, nat_pause=None)
         return s, np.zeros(0, np.float32)
     t0, t1 = ab[0] / sr, ab[1] / sr
@@ -148,7 +147,7 @@ def score_take(job, y, sr, words, ref):
     res = {"text": " ".join(w for w, _, _ in inside),
            "segments": [{"words": [dict(word=" " + w, start=a, end=b) for w, a, b in inside]}]}
     yc = cap_pauses(tidy(yc, sr), sr)
-    s = check(yc, sr, job["text"], ref, res=res)
+    s = check(yc, sr, job["text"], ref, res=res, asr_equiv=asr_equiv)
     s.update(cut=True, nat_pause=nat)
     return s, yc
 

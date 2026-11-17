@@ -5,6 +5,7 @@ A script is either
     (the heading itself is not read aloud), or
   * JSON: {"lines": [{"ch": "<chapter id>", "text": "...", "say": "<optional spoken form>"}, ...]}. "say" is
     what gets read and scored when it differs from the written text (e.g. a respelled name).
+    An optional top-level asr_equiv maps equivalent spellings for checks only.
 
 The text is normalized for speech first (normalize.py): "$1.87" -> "1 dollar and 87 cents", "Dr." -> "Doctor",
 "50%" -> "50 percent", parentheses -> commas. Plain numbers are left for the model, which reads them in
@@ -18,26 +19,36 @@ import json, os, re
 
 
 def load_script(path, normalize=True):
-    """Returns [{"ch", "text", "say"}] from a .json or plain-text script; "say" is what will be read."""
-    lines = _read_script(path)
+    """Returns the script's lines; use load_script_document to retain comparison metadata."""
+    return load_script_document(path, normalize)["lines"]
+
+
+def load_script_document(path, normalize=True):
+    """Read lines and optional asr_equiv without applying equivalences to spoken text."""
+    if os.path.splitext(path)[1].lower() == ".json":
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+        lines = doc["lines"]
+        equiv = doc.get("asr_equiv", {})
+        if not isinstance(equiv, dict) or any(
+                not isinstance(k, str) or not k.strip() or
+                not isinstance(v, str) or not v.strip() for k, v in equiv.items()):
+            raise ValueError("asr_equiv must be an object of nonempty spelling strings")
+    else:
+        lines, ch, equiv = [], 0, {}
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        for block in re.split(r"\n\s*\n", text):
+            rows = [r.strip() for r in block.strip().splitlines() if r.strip()]
+            while rows and rows[0].startswith("#"):
+                ch += 1; rows = rows[1:]
+            if rows:
+                lines.append({"ch": ch, "text": " ".join(rows)})
     if normalize:
         from .normalize import TextNormalizer
         n = TextNormalizer()
         lines = [dict(l, say=n.normalize(l.get("say", l["text"]))) for l in lines]
-    return lines
-
-
-def _read_script(path):
-    if os.path.splitext(path)[1].lower() == ".json":
-        return json.load(open(path))["lines"]
-    lines, ch = [], 0
-    for block in re.split(r"\n\s*\n", open(path).read()):
-        rows = [r.strip() for r in block.strip().splitlines() if r.strip()]
-        while rows and rows[0].startswith("#"):
-            ch += 1; rows = rows[1:]
-        if rows:
-            lines.append({"ch": ch, "text": " ".join(rows)})
-    return lines
+    return {"lines": lines, "asr_equiv": dict(equiv)}
 
 
 def sentences(text):

@@ -31,7 +31,7 @@ from . import metrics as M
 from .engine import Qwen, max_tokens_for
 from .pauses import sentence_pause
 from .perf import MemWatch, machine, memory, record
-from .script import load_script, make_chunks, overlap_jobs
+from .script import load_script_document, make_chunks, overlap_jobs
 from .takes import join_pause, score_take
 
 
@@ -58,7 +58,10 @@ def run(ref_wav, script, out, ref_text=None, B=32, takes=3, gap=0.42, ch_gap=0.9
     if cache_gb is not None:
         mx.set_cache_limit(int(cache_gb * 1e9))
     os.makedirs(f"{out}/chunks", exist_ok=True)
-    chunks = make_chunks(load_script(script, normalize))
+    document = load_script_document(script, normalize)
+    asr_equiv = document["asr_equiv"]
+    M.toks("", asr_equiv)  # validate comparison rules before loading models
+    chunks = make_chunks(document["lines"])
     chunks = chunks[:limit] if limit else chunks
     jobs = overlap_jobs(chunks)
     ref_text = reference_text(ref_wav, ref_text)
@@ -104,7 +107,7 @@ def run(ref_wav, script, out, ref_text=None, B=32, takes=3, gap=0.42, ch_gap=0.9
             print(f"round {rnd} batch {b0 // B}: {len(grp)} takes, {sum(len(y) for y in ys)/sr:6.1f}s audio, "
                   f"gen {tg:5.1f}s whisper {tw:5.1f}s", flush=True)
             futures.append(pool.submit(lambda grp=grp, ys=ys, trs=trs, seed=seed:
-                                       [(j, seed) + score_take(j, y, sr, M.words_of(tr), ref)
+                                       [(j, seed) + score_take(j, y, sr, M.words_of(tr), ref, asr_equiv)
                                         for j, y, tr in zip(grp, ys, trs)]))
         tw = time.time()
         for f in futures:
@@ -123,7 +126,7 @@ def run(ref_wav, script, out, ref_text=None, B=32, takes=3, gap=0.42, ch_gap=0.9
         grp = [dict(j, lead="", guard="", full=j["text"]) for j in rescue for _ in range(2)]
         ys, trs, _, _ = generate_and_transcribe(grp, seed0 + 99991)
         for j, y, tr in zip(grp, ys, trs):
-            s, yc = score_take(j, y, sr, M.words_of(tr), ref)
+            s, yc = score_take(j, y, sr, M.words_of(tr), ref, asr_equiv)
             s.update(round="rescue", nat_pause=None)
             cands[j["i"]].append((s, yc))
             if s["ok"] and j["i"] not in done:
@@ -133,7 +136,7 @@ def run(ref_wav, script, out, ref_text=None, B=32, takes=3, gap=0.42, ch_gap=0.9
     pool.shutdown()
     t_gate = time.time() - t_run
 
-    log = {"ref": ref_wav, "script": script, "normalize": normalize, "batch": B, "takes": takes, "chunks": []}
+    log = {"ref": ref_wav, "script": script, "normalize": normalize, "asr_equiv": asr_equiv, "batch": B, "takes": takes, "chunks": []}
     pieces = []
     for j, c in zip(jobs, chunks):
         i = j["i"]
@@ -201,9 +204,10 @@ def main():
     wav = run(a.ref, a.script, a.out, ref_text=a.ref_text, B=a.batch, takes=a.takes, limit=a.limit,
               cache_gb=a.cache_limit, decode_step=a.decode_step, perf_log=a.perf_log, normalize=not a.no_normalize)
     if a.analyse:
-        chunks = make_chunks(load_script(a.script, not a.no_normalize))
+        document = load_script_document(a.script, not a.no_normalize)
+        chunks = make_chunks(document["lines"])
         chunks = chunks[:a.limit] if a.limit else chunks
-        r = M.analyse(wav, M.reference_profile(a.ref), " ".join(c["text"] for c in chunks))
+        r = M.analyse(wav, M.reference_profile(a.ref), " ".join(c["text"] for c in chunks), asr_equiv=document["asr_equiv"])
         json.dump(r, open(f"{a.out}/metrics.json", "w"), indent=1)
         print(M.fmt_summary(os.path.basename(a.out.rstrip("/")), r["summary"]))
 
